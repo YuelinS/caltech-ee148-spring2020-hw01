@@ -30,7 +30,7 @@ def detect_red_light(I,filter_rgb):
     rows = []
     cols = []
     
-    for row in range(0,im_rows - filter_rows,stride):
+    for row in range(0,im_rows - filter_rows - drop_bottom,stride):
         
         for col in range(0,im_cols - filter_cols,stride):
     
@@ -38,6 +38,8 @@ def detect_red_light(I,filter_rgb):
     
                 # normalize
                 # norm = np.linalg.norm(patch)    
+                # patch = patch / norm
+
                 norm = np.amax(patch) - np.amin(patch)
                 patch = (patch - np.amin(patch) )/ norm
                 
@@ -48,13 +50,14 @@ def detect_red_light(I,filter_rgb):
                 cols.append(col)
     
     # decide threshold
-    conv_row = (im_rows - filter_rows)//stride + 1
+    conv_row = (im_rows - filter_rows - drop_bottom)//stride + 1
     conv_col = (im_cols - filter_cols)//stride + 1
-    plt.imshow(np.array(convs).reshape(conv_row,conv_col))   
+    conv_img = np.array(convs).reshape(conv_row,conv_col)
+    plt.imshow(conv_img)   
     plt.colorbar()
     plt.show()
     
-    sort_convs = np.argsort(convs)[::-1][0:7]
+    sort_convs = np.argsort(convs)[::-1][0:5]
     pick_rows = np.array(rows)[sort_convs]
     pick_cols = np.array(cols)[sort_convs]
        
@@ -76,6 +79,7 @@ def detect_red_light(I,filter_rgb):
     return bounding_boxes
 
 
+#%%
 
 # set the path to the downloaded data: 
 data_path = '../data/RedLights2011_Medium'
@@ -92,17 +96,32 @@ file_names = [f for f in file_names if '.jpg' in f]
 
 
 # make the red light filter
-dia = 21 
+dia = 9
+edge = 2
 rad = int(np.floor(dia/2))
-circle_center = np.array((rad,rad))
 
-filter_rgb = np.zeros((dia*3,dia,3))
-filter_circle_mask = np.array([[(np.sum((np.array((row,col))-circle_center)**2) <= rad**2) for col in range(dia)] for row in range(dia*3)])     
+filter_rows = dia*3+edge*2
+filter_cols = dia+edge*2
+
+circle_center = np.array((rad+edge,rad+edge))
+
+filter_rgb = np.ones((filter_rows,filter_cols,3))*(-40)
+filter_circle_mask = np.array([[(np.sum((np.array((row,col))-circle_center)**2) <= rad**2) for col in range(filter_cols)] for row in range(filter_rows)])     
+
+# filter_rgb = np.ones((dia+edge*2,dia+edge*2,3))*(-10)
+# filter_circle_mask = np.array([[(np.sum((np.array((row,col))-circle_center)**2) <= rad**2) for col in range(dia)] for row in range(dia)])     
              
 
-filter_rgb[filter_circle_mask,0]=250    
+filter_rgb[filter_circle_mask,0]=240  
+
+# smooth
+
+  
     
-(filter_rows,filter_cols,filter_channels) = np.shape(filter_rgb)
+plt.imshow(filter_rgb)
+plt.show()
+# plt.savefig(os.path.join(preds_path,'red_light_filter.png'))
+
 
 
 # make red light filter by image
@@ -111,11 +130,10 @@ I.show()
 
 
 
-# plt.imshow(filter_rgb)
-plt.savefig(os.path.join(preds_path,'red_light_filter.png'))
 
 # convolution stride
-stride = 10
+stride = 5
+drop_bottom = 50
     
 preds = {}
 for i in range(1,2):   #len(file_names)):  #

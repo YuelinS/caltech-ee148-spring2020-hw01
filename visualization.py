@@ -37,12 +37,16 @@ with open(os.path.join(preds_path,'preds.json'),'r') as f:
 
 # the red light filter
     
-filter_rows = 123
-filter_cols = 41
+bounding_boxes = preds[file_names[1]]
+bounding_box = bounding_boxes[0]
+
+
+filter_rows = bounding_box[2] - bounding_box[0]
+filter_cols = bounding_box[3] - bounding_box[1]
 
 
 #%%    
-for i in range(1):   #len(file_names)):  #
+for i in range(1,2):   #len(file_names)):  #
     
     # read image using PIL:
     I = Image.open(os.path.join(data_path,file_names[i]))
