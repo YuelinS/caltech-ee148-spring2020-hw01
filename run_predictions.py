@@ -36,13 +36,22 @@ def detect_red_light(I,filter_rgb):
     
                 patch = I[row : row + filter_rows  , col : col + filter_cols]
     
+                # normalize
+                # norm = np.linalg.norm(patch)    
+                norm = np.amax(patch) - np.amin(patch)
+                patch = (patch - np.amin(patch) )/ norm
+                
+                
+    
                 convs.append(np.sum(patch*filter_rgb))
                 rows.append(row)
                 cols.append(col)
     
     # decide threshold
-    
-    plt.plot(convs)
+    conv_row = (im_rows - filter_rows)//stride + 1
+    conv_col = (im_cols - filter_cols)//stride + 1
+    plt.imshow(np.array(convs).reshape(conv_row,conv_col))   
+    plt.colorbar()
     plt.show()
     
     sort_convs = np.argsort(convs)[::-1][0:7]
@@ -83,7 +92,7 @@ file_names = [f for f in file_names if '.jpg' in f]
 
 
 # make the red light filter
-dia = 41 
+dia = 21 
 rad = int(np.floor(dia/2))
 circle_center = np.array((rad,rad))
 
@@ -92,16 +101,25 @@ filter_circle_mask = np.array([[(np.sum((np.array((row,col))-circle_center)**2) 
              
 
 filter_rgb[filter_circle_mask,0]=250    
-plt.imshow(filter_rgb)
     
 (filter_rows,filter_cols,filter_channels) = np.shape(filter_rgb)
+
+
+# make red light filter by image
+I = Image.open(os.path.join(data_path,file_names[1]))
+I.show()
+
+
+
+# plt.imshow(filter_rgb)
+plt.savefig(os.path.join(preds_path,'red_light_filter.png'))
 
 # convolution stride
 stride = 10
     
 preds = {}
-for i in range(1):   #len(file_names)):  #
-    
+for i in range(1,2):   #len(file_names)):  #
+
     # read image using PIL:
     I = Image.open(os.path.join(data_path,file_names[i]))
     
