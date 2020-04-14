@@ -1,11 +1,11 @@
 import os
 import numpy as np
 import json
-from PIL import Image
+from PIL import Image, ImageDraw 
 from matplotlib import pyplot as plt
 
 
-def detect_red_light(I,filter_rgb):
+def detect_red_light(Iasarray,filter_rgb):
     '''
     This function takes a numpy array <I> and returns a list <bounding_boxes>.
     The list <bounding_boxes> should have one element for each red light in the 
@@ -24,7 +24,7 @@ def detect_red_light(I,filter_rgb):
     bounding_boxes = [] # This should be a list of lists, each of length 4. See format example below. 
         
     
-    (im_rows,im_cols,im_channels) = np.shape(I)
+    (im_rows,im_cols,im_channels) = np.shape(Iasarray)
     
     convs = []
     rows = []
@@ -34,7 +34,7 @@ def detect_red_light(I,filter_rgb):
         
         for col in range(0,im_cols - filter_cols,stride):
     
-                patch = I[row : row + filter_rows  , col : col + filter_cols]
+                patch = Iasarray[row : row + filter_rows  , col : col + filter_cols]
     
                 # normalize
                 # norm = np.linalg.norm(patch)    
@@ -50,16 +50,18 @@ def detect_red_light(I,filter_rgb):
                 cols.append(col)
     
     # decide threshold
-    conv_row = (im_rows - filter_rows - drop_bottom)//stride + 1
-    conv_col = (im_cols - filter_cols)//stride + 1
+    conv_row = (im_rows - filter_rows - drop_bottom)//stride + int((im_rows - filter_rows - drop_bottom) % stride != 0)
+    conv_col = (im_cols - filter_cols)//stride + + int((im_cols - filter_cols) % stride != 0)
     conv_img = np.array(convs).reshape(conv_row,conv_col)
     plt.imshow(conv_img)   
     plt.colorbar()
     plt.show()
     
-    sort_convs = np.argsort(convs)[::-1][0:5]
-    pick_rows = np.array(rows)[sort_convs]
-    pick_cols = np.array(cols)[sort_convs]
+    sort_convs = np.sort(convs)[::-1]
+    sort_convs_idx = np.argsort(convs)[::-1]
+    select_convs = sort_convs > (-1000)
+    pick_rows = np.array(rows)[sort_convs_idx[select_convs]]
+    pick_cols = np.array(cols)[sort_convs_idx[select_convs]]
        
     
     for i in range(len(pick_rows)):
@@ -88,6 +90,9 @@ data_path = '../data/RedLights2011_Medium'
 preds_path = './' 
 os.makedirs(preds_path,exist_ok=True) # create directory if needed 
 
+results_path = '../results/hw01'
+os.makedirs(results_path,exist_ok=True) # create directory if needed 
+
 # get sorted list of files: 
 file_names = sorted(os.listdir(data_path)) 
 
@@ -96,16 +101,16 @@ file_names = [f for f in file_names if '.jpg' in f]
 
 
 # make the red light filter
-dia = 9
+dia = 7
 edge = 2
 rad = int(np.floor(dia/2))
 
-filter_rows = dia*3+edge*2
+filter_rows = dia*3+edge
 filter_cols = dia+edge*2
 
 circle_center = np.array((rad+edge,rad+edge))
 
-filter_rgb = np.ones((filter_rows,filter_cols,3))*(-40)
+filter_rgb = np.ones((filter_rows,filter_cols,3))*(-50)
 filter_circle_mask = np.array([[(np.sum((np.array((row,col))-circle_center)**2) <= rad**2) for col in range(filter_cols)] for row in range(filter_rows)])     
 
 # filter_rgb = np.ones((dia+edge*2,dia+edge*2,3))*(-10)
@@ -125,27 +130,45 @@ plt.show()
 
 
 # make red light filter by image
-I = Image.open(os.path.join(data_path,file_names[1]))
-I.show()
+# I = Image.open(os.path.join(data_path,file_names[1]))
+# I.show()
 
 
 
 
 # convolution stride
 stride = 5
-drop_bottom = 50
+drop_bottom = 72
     
 preds = {}
-for i in range(1,2):   #len(file_names)):  #
+for i in range(10):   #len(file_names)):  #
 
     # read image using PIL:
     I = Image.open(os.path.join(data_path,file_names[i]))
     
     # convert to numpy array:
-    I = np.asarray(I)
+    Iasarray = np.asarray(I)
     
-    preds[file_names[i]] = detect_red_light(I,filter_rgb)
+    bounding_boxes = detect_red_light(Iasarray,filter_rgb)
+    
+    preds[file_names[i]] = bounding_boxes
+    
+    # visualize
+    img = ImageDraw.Draw(I)  #Image.fromarray(I))  
+
+    for j in range(len(bounding_boxes)):
+        bounding_box = bounding_boxes[j]
+        bounding_box = [ bounding_box[i] for i in [1,0,3,2]]  
+        img.rectangle(bounding_box, outline ="red") 
+        
+    # I.show()
+    I.save(os.path.join(results_path,file_names[i]))
+    
+    
 
 # save preds (overwrites any previous predictions!)
 with open(os.path.join(preds_path,'preds.json'),'w') as f:
     json.dump(preds,f)
+
+
+

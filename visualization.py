@@ -60,6 +60,5 @@ for i in range(1,2):   #len(file_names)):  #
         img.rectangle(bounding_box, outline ="red") 
         
     I.show()
-    # preds[file_names[i]] = detect_red_light(I,filter_rgb)
 
     I.save(os.path.join(results_path,file_names[i]))
