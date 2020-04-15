@@ -10,17 +10,19 @@ from matplotlib import pyplot as plt
 # filter shape params: red_diameter, black_edge, blue_padding
 filter_paras = [(7,2,0),(7,2,3),(23,3,0),(23,3,5)]
 strides = [5,5,10,10]
-thres = [-200,7500,0,45000]
+thres = [-1000,5000,0,10000]
    
 # filter color params:
 k = 140
 sky = [150-k,180-k,200-k]
-filter_w_red = 270
-filter_w_blk = -50
+# sky = [100, 200, 255]
+
+filter_w_red = 300
+filter_w_blk_upper, filter_w_blk_lower = -100, -50
 
 # using filter #:
-flag_filter = [0,1,2,3] # [0]  #
-
+flag_filter = range(4) # [0]  #
+flag_figs = range(334)
 
 def detect_red_light(Iasarray,filters,strides):
     '''
@@ -38,6 +40,7 @@ def detect_red_light(Iasarray,filters,strides):
     '''
         
     bounding_boxes = [] # This should be a list of lists, each of length 4. See format example below. 
+    bounding_box_filter_idx = []
     top_convs = np.empty((10,4))
     
     (im_rows,im_cols,im_channels) = np.shape(Iasarray)
@@ -68,8 +71,6 @@ def detect_red_light(Iasarray,filters,strides):
                     norm = max(np.amax(patch) - np.amin(patch), 200)
                     patch = (patch)/ norm  # - np.amin(patch)
                     
-                    
-        
                     convs.append(np.sum(patch*filter_rgb))
                     rows.append(row)
                     cols.append(col)
@@ -78,9 +79,13 @@ def detect_red_light(Iasarray,filters,strides):
         conv_row = (im_rows - filter_rows - drop_bottom)//stride + int((im_rows - filter_rows - drop_bottom) % stride != 0)
         conv_col = (im_cols - filter_cols)//stride + + int((im_cols - filter_cols) % stride != 0)
         conv_img = np.array(convs).reshape(conv_row,conv_col)
-        plt.imshow(conv_img)   
-        plt.colorbar()
-        plt.show()
+        # plt.imshow(conv_img)
+        # plt.colorbar()
+        # rgb_range = conv_img.copy().flatten()
+        # rgb_range.sort()
+        # plt.title(np.histogram(rgb_range, bins=5)[1], size=10)
+        # plt.xlabel(rgb_range[-10:][::-1])
+        # plt.show()
         
         sort_convs = np.sort(convs)[::-1]
         sort_convs_idx = np.argsort(convs)[::-1]
@@ -93,21 +98,20 @@ def detect_red_light(Iasarray,filters,strides):
         pick_cols = np.array(cols)[sort_convs_idx[select_convs]]
        
     
-        for i in range(len(pick_rows)):
+        for j in range(len(pick_rows)):
             
-            
-            tl_row = int(pick_rows[i])
-            tl_col = int(pick_cols[i])
+            tl_row = int(pick_rows[j])
+            tl_col = int(pick_cols[j])
             br_row = tl_row + filter_rows
             br_col = tl_col + filter_cols
-            
+            bounding_box_filter_idx.append(i)
             bounding_boxes.append([tl_row,tl_col,br_row,br_col]) 
     
     
     for i in range(len(bounding_boxes)):
         assert len(bounding_boxes[i]) == 4
     
-    return bounding_boxes, top_convs
+    return bounding_boxes, top_convs, bounding_box_filter_idx
 
 
 
@@ -115,7 +119,6 @@ def make_red_light_filter(filter_paras):
     
     filters = []
 
-    
     for i in range(len(filter_paras)):
     
         # make the red light filter
@@ -130,7 +133,10 @@ def make_red_light_filter(filter_paras):
         
         circle_center = np.array((rad+edge,rad+edge))
         
-        filter_rgb = np.ones((filter_rows,filter_cols,3)) * filter_w_blk
+        filter_rgb_upper = np.ones((dia,filter_cols,3)) * filter_w_blk_upper
+        filter_rgb_lower = np.ones((dia*2+edge,filter_cols,3)) * filter_w_blk_lower
+        filter_rgb = np.vstack([filter_rgb_upper, filter_rgb_lower])
+
         filter_circle_mask = np.array([[(np.sum((np.array((row,col))-circle_center)**2) <= rad**2) for col in range(filter_cols)] for row in range(filter_rows)])     
         
         # filter_rgb = np.ones((dia+edge*2,dia+edge*2,3))*(-10)
@@ -152,7 +158,7 @@ def make_red_light_filter(filter_paras):
         # I = Image.open(os.path.join(data_path,file_names[1]))
         # I.show()
             
-        plt.imshow(filter_pad)
+        plt.imshow(filter_pad/255)
         # plt.show()
         plt.savefig(os.path.join(preds_path,'red_light_filter_' + f'{i}' + '.png'))
     
@@ -194,7 +200,7 @@ drop_bottom = 72
     
 preds = {}
 
-for i in range(10):   #len(file_names)):  #   
+for i in flag_figs:   #len(file_names)):  #
     
     # read image using PIL:
     I = Image.open(os.path.join(data_path,file_names[i]))
@@ -203,17 +209,16 @@ for i in range(10):   #len(file_names)):  #
     Iasarray = np.asarray(I)
     
     # main function
-    bounding_boxes, top_convs = detect_red_light(Iasarray,filters,strides)
+    bounding_boxes, top_convs, bounding_box_filter_idx = detect_red_light(Iasarray,filters,strides)
     
     preds[file_names[i]] = bounding_boxes
     
     # visualization
     img = ImageDraw.Draw(I)  #Image.fromarray(I))  
 
-    for j in range(len(bounding_boxes)):
-        bounding_box = bounding_boxes[j]
-        bounding_box = [ bounding_box[i] for i in [1,0,3,2]]  
-        img.rectangle(bounding_box, outline ="red") 
+    for bounding_box, j in zip(bounding_boxes, bounding_box_filter_idx):
+        bounding_box = [bounding_box[k] for k in [1,0,3,2]]
+        img.rectangle(bounding_box, outline ="hsl({}, 100%, 50%)".format(j*90))
         
     # I.show()
     I.save(os.path.join(results_path,file_names[i]))
@@ -222,7 +227,7 @@ for i in range(10):   #len(file_names)):  #
 
 # save preds (overwrites any previous predictions!)
 with open(os.path.join(preds_path,'preds.json'),'w') as f:
-    json.dump(preds,f)
+    json.dump(preds,f, indent=4)
 
 
 
