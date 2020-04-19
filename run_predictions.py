@@ -22,7 +22,7 @@ filter_w_blk_upper, filter_w_blk_lower = -100, -50
 
 # using filter #:
 flag_filter = range(4) # [0]  #
-flag_figs = range(334)
+flag_figs = [1] #range(334)
 
 def detect_red_light(Iasarray,filters,strides):
     '''
@@ -79,13 +79,13 @@ def detect_red_light(Iasarray,filters,strides):
         conv_row = (im_rows - filter_rows - drop_bottom)//stride + int((im_rows - filter_rows - drop_bottom) % stride != 0)
         conv_col = (im_cols - filter_cols)//stride + + int((im_cols - filter_cols) % stride != 0)
         conv_img = np.array(convs).reshape(conv_row,conv_col)
-        # plt.imshow(conv_img)
-        # plt.colorbar()
-        # rgb_range = conv_img.copy().flatten()
-        # rgb_range.sort()
-        # plt.title(np.histogram(rgb_range, bins=5)[1], size=10)
-        # plt.xlabel(rgb_range[-10:][::-1])
-        # plt.show()
+        plt.imshow(conv_img)
+        plt.colorbar()
+        rgb_range = conv_img.copy().flatten()
+        rgb_range.sort()
+        plt.title(np.histogram(rgb_range, bins=5)[1], size=10)
+        plt.xlabel(rgb_range[-10:][::-1])
+        plt.show()
         
         sort_convs = np.sort(convs)[::-1]
         sort_convs_idx = np.argsort(convs)[::-1]
@@ -226,7 +226,7 @@ for i in flag_figs:   #len(file_names)):  #
     
 
 # save preds (overwrites any previous predictions!)
-with open(os.path.join(preds_path,'preds.json'),'w') as f:
+with open(os.path.join(results_path,'preds.json'),'w') as f:
     json.dump(preds,f, indent=4)
 
 
