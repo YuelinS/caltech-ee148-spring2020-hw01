@@ -1,9 +1,12 @@
+assert False
+
 import os
 import numpy as np
 import json
 from PIL import Image, ImageDraw 
 from matplotlib import pyplot as plt
 
+assert False
 
 # Red light filter parameter tuning:
     
